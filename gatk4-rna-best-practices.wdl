@@ -61,7 +61,7 @@
 
 	call MarkDuplicates {
 		input:
-			input_bam = MergeBamAlignment.output_bam,
+			input_bam = inputBam,
 			base_name = sampleName + ".dedupped",
 			preemptible_count = preemptible_count,
 			docker = gatk4_docker,
