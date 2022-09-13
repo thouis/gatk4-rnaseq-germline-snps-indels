@@ -796,7 +796,8 @@ task RevertSam {
     Int preemptible_count
 
     command <<<
-        ${gatk_path} \
+    ${gatk_path} \
+        --java-options "-Dsamjdk.compression_level=5 -Xms4000m -Xmx8000m" \
         	RevertSam \
         	--INPUT ${input_bam} \
         	--OUTPUT ${base_name}.bam \
@@ -813,7 +814,7 @@ task RevertSam {
     runtime {
         docker: docker
         disks: "local-disk " + sub(((size(input_bam,"GB")+1)*5),"\\..*","") + " HDD"
-        memory: "4 GB"
+        memory: "10 GB"
         preemptible: preemptible_count
     }
 }
