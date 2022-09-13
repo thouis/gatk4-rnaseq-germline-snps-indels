@@ -233,8 +233,10 @@ task MarkDuplicates {
   command <<<
   ${gatk_path} \
       PrintReadsHeader \
-      --INPUT ${input_bam} \
-      --OUTPUT header.sam
+      --input ${input_bam} \
+      --output header.sam
+
+  cat header.sam
 
   sed '/SN:chr/! s/SN:/SN:chr/' < header.sam > header_withchr.sam
 
