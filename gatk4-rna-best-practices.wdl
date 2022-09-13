@@ -3,7 +3,7 @@
 ## Workflows for processing RNA data for germline short variant discovery with GATK (v4) and related tools
 ##
 ## Requirements/expectations :
-## - BAM 
+## - BAM from alignment (does not need to be sorted)
 ##
 ## Output :
 ## - A BAM file and its index.
@@ -34,8 +34,6 @@
 	String gatk4_docker = select_first([gatk4_docker_override, "broadinstitute/gatk:latest"])
 	String? gatk_path_override
 	String gatk_path = select_first([gatk_path_override, "/gatk/gatk"])
-	String? star_docker_override
-	String star_docker = select_first([star_docker_override, "quay.io/humancellatlas/secondary-analysis-star:v0.2.2-2.5.3a-40ead6e"])
 
 	Array[File] knownVcfs
 	Array[File] knownVcfsIndices
@@ -45,14 +43,9 @@
 
 	Int? minConfidenceForVariantCalling
 
-	## Inputs for STAR
-	Int? readLength
-	File? tarredStarReferences
-	File annotationsGTF
-  
 	## Optional user optimizations
 	Int? haplotypeScatterCount
-	Int scatterCount = select_first([haplotypeScatterCount, 6])
+	Int scatterCount = select_first([haplotypeScatterCount, 10])
 
 	Int? preemptible_tries
 	Int preemptible_count = select_first([preemptible_tries, 3])
@@ -64,63 +57,6 @@
 	        preemptible_count = preemptible_count,
 	        gatk_path = gatk_path,
 	        docker = gatk4_docker
-	}
-
-	call RevertSam {
-		input:
-			input_bam = inputBam,
-			base_name = sampleName + ".reverted",
-			sort_order = "queryname",
-			preemptible_count = preemptible_count,
-			docker = gatk4_docker,
-			gatk_path = gatk_path
-	}
-
-	call SamToFastq {
-		input:
-			unmapped_bam = RevertSam.output_bam,
-			base_name = sampleName,
-			preemptible_count = preemptible_count,
-			docker = gatk4_docker,
-			gatk_path = gatk_path
-	}
-
-	if (!defined(tarredStarReferences)) {
-
-		call StarGenerateReferences { 
-			input:
-				ref_fasta = refFasta,
-				ref_fasta_index = refFastaIndex,
-				annotations_gtf = annotationsGTF,
-				read_length = readLength,
-				preemptible_count = preemptible_count,
-				docker = star_docker
-		}
-	}
-
-	File starReferences = select_first([tarredStarReferences,StarGenerateReferences.star_genome_refs_tarred,""])
-
-	call StarAlign { 
-		input: 
-			star_genome_refs_tarred = starReferences,
-			fastq1 = SamToFastq.fastq1,
-			fastq2 = SamToFastq.fastq2,
-			base_name = sampleName + ".star",
-			read_length = readLength,
-			preemptible_count = preemptible_count,
-			docker = star_docker
-	}
-
-	call MergeBamAlignment {
-		input: 
-			unaligned_bam = RevertSam.output_bam,
-			star_bam = StarAlign.output_bam,
-			base_name = ".merged",
-			ref_fasta = refFasta,
-			ref_dict = refDict,
-			preemptible_count = preemptible_count,
-			docker = gatk4_docker,
-			gatk_path = gatk_path
 	}
 
 	call MarkDuplicates {
@@ -283,179 +219,6 @@ task gtfToCallingIntervals {
     }
 }
 
-#NOTE: assuming aggregated bams & paired end fastqs
-task SamToFastq {
-    File unmapped_bam
-    String base_name
-
-    String gatk_path
-
-    String docker
-	Int preemptible_count
-
-	command <<<
-	 	${gatk_path} \
-	 	    SamToFastq \
-	 	    --INPUT ${unmapped_bam} \
-	 	    --VALIDATION_STRINGENCY SILENT \
-	 	    --FASTQ ${base_name}.1.fastq.gz \
-	 	    --SECOND_END_FASTQ ${base_name}.2.fastq.gz
-	>>>
-
-	output {
-		File fastq1 = "${base_name}.1.fastq.gz"
-        File fastq2 = "${base_name}.2.fastq.gz"
-	}
-
-	runtime {
-		docker: docker
-		memory: "4 GB"
-		disks: "local-disk " + sub(((size(unmapped_bam,"GB")+1)*5),"\\..*","") + " HDD"
-		preemptible: preemptible_count
-	}
-}
-
-task StarGenerateReferences {
-	File ref_fasta
-	File ref_fasta_index
-	File annotations_gtf
-	Int? read_length  ## Should this be an input, or should this always be determined by reading the first line of a fastq input
-
-	Int? num_threads
-	Int threads = select_first([num_threads, 8])
-    
-	Int? additional_disk
-        Int add_to_disk = select_first([additional_disk, 0])
-	Int disk_size = select_first([100 + add_to_disk, 100])
-	Int? mem_gb
-	Int mem = select_first([100, mem_gb])
-	String docker
-	Int preemptible_count
-
-	command <<<
-		set -e
-		mkdir STAR2_5
-
-		STAR \
-		--runMode genomeGenerate \
-		--genomeDir STAR2_5 \
-		--genomeFastaFiles ${ref_fasta} \
-		--sjdbGTFfile ${annotations_gtf} \
-		${"--sjdbOverhang "+(read_length-1)} \
-		--runThreadN ${threads}
-
-		ls STAR2_5
-
-		tar -cvf star-HUMAN-refs.tar STAR2_5
-	>>>
-
-	output {
-		Array[File] star_logs = glob("*.out")
-		File star_genome_refs_tarred = "star-HUMAN-refs.tar"
-	}
-
-	runtime {
-		docker: docker
-		disks: "local-disk " + disk_size + " HDD"
-		cpu: threads
-		memory: mem +" GB"
-		preemptible: preemptible_count
-	}
-}
-
-
-task StarAlign {
-	File star_genome_refs_tarred
-	File fastq1
-	File fastq2
-	String base_name
-	Int? read_length
-
-	Int? num_threads
-	Int threads = select_first([num_threads, 8])
-	Int? star_mem_max_gb
-	Int star_mem = select_first([star_mem_max_gb, 45])
-	#Is there an appropriate default for this?
-	Int? star_limitOutSJcollapsed
-
-	Int? additional_disk
-	Int add_to_disk = select_first([additional_disk, 0])
-	String docker
-	Int preemptible_count
-
-	command <<<
-		set -e
-
-		tar -xvf ${star_genome_refs_tarred}
-
-		STAR \
-		--genomeDir star \
-		--runThreadN ${threads} \
-		--readFilesIn ${fastq1} ${fastq2} \
-		--readFilesCommand "gunzip -c" \
-		${"--sjdbOverhang "+(read_length-1)} \
-		--outSAMtype BAM SortedByCoordinate \
-		--twopassMode Basic \
-		--limitBAMsortRAM ${star_mem+"000000000"} \
-		--limitOutSJcollapsed ${default=1000000 star_limitOutSJcollapsed} \
-		--outFileNamePrefix ${base_name}.
-	>>>
-
-	output {
-		File output_bam = "${base_name}.Aligned.sortedByCoord.out.bam"
-		File output_log_final = "${base_name}.Log.final.out"
-		File output_log = "${base_name}.Log.out"
-		File output_log_progress = "${base_name}.Log.progress.out"
-		File output_SJ = "${base_name}.SJ.out.tab"
-	}
-
-	runtime {
-		docker: docker
-		disks: "local-disk " + sub(((size(fastq1,"GB")+size(fastq2,"GB")*10)+30+add_to_disk),"\\..*","") + " HDD"
-		memory: (star_mem+1) + " GB"
-		cpu: threads
-		preemptible: preemptible_count
-	}
-}
-
-task MergeBamAlignment {
-
-    File ref_fasta
-    File ref_dict
-
-    File unaligned_bam
-    File star_bam
-    String base_name
-
-    String gatk_path
-
-    String docker
-    Int preemptible_count
-    #Using default for max_records_in_ram
- 
-    command <<<
-        ${gatk_path} \
-            MergeBamAlignment \
-            --REFERENCE_SEQUENCE ${ref_fasta} \
-            --UNMAPPED_BAM ${unaligned_bam} \
-            --ALIGNED_BAM ${star_bam} \
-            --OUTPUT ${base_name}.bam \
-            --INCLUDE_SECONDARY_ALIGNMENTS false \
-            --VALIDATION_STRINGENCY SILENT
-    >>>
- 
-    output {
-        File output_bam="${base_name}.bam"
-    }
-
-    runtime {
-        docker: docker
-        disks: "local-disk " + sub(((size(unaligned_bam,"GB")+size(star_bam,"GB")+1)*5),"\\..*","") + " HDD"
-        memory: "4 GB"
-        preemptible: preemptible_count
-    }
-}
-
 task MarkDuplicates {
 
  	File input_bam
@@ -466,10 +229,17 @@ task MarkDuplicates {
   String docker
  	Int preemptible_count
 
- 	command <<<
+  command <<<
+ 	    ${gatk_path} \
+ 	        SortSam \
+ 	        --INPUT ${input_bam} \
+                --SORT_ORDER coordinate \
+ 	        --OUTPUT ${base_name}.sorted.bam  \
+ 	        --VALIDATION_STRINGENCY SILENT
+  
  	    ${gatk_path} \
  	        MarkDuplicates \
- 	        --INPUT ${input_bam} \
+ 	        --INPUT ${base_name}.sorted.bam \
  	        --OUTPUT ${base_name}.bam  \
  	        --CREATE_INDEX true \
  	        --VALIDATION_STRINGENCY SILENT \
@@ -483,7 +253,7 @@ task MarkDuplicates {
  	}
 
 	runtime {
-		disks: "local-disk " + sub(((size(input_bam,"GB")+1)*3),"\\..*","") + " HDD"
+		disks: "local-disk " + sub(((size(input_bam,"GB")+1)*4),"\\..*","") + " HDD"
 		docker: docker
 		memory: "4 GB"
 		preemptible: preemptible_count
@@ -785,37 +555,4 @@ task ScatterIntervalList {
     }
 }
 
-task RevertSam {
-    File input_bam
-    String base_name
-    String sort_order
-
-    String gatk_path
-
-    String docker
-    Int preemptible_count
-
-    command <<<
-    ${gatk_path} \
-        --java-options "-Dsamjdk.compression_level=5 -Xms4000m -Xmx8000m" \
-        	RevertSam \
-        	--INPUT ${input_bam} \
-        	--OUTPUT ${base_name}.bam \
-            --VALIDATION_STRINGENCY SILENT \
-        	--ATTRIBUTE_TO_CLEAR FT \
-        	--ATTRIBUTE_TO_CLEAR CO \
-        	--SORT_ORDER ${sort_order}
-    >>>
-
-    output {
-        File output_bam = "${base_name}.bam"
-    }
-
-    runtime {
-        docker: docker
-        disks: "local-disk " + sub(((size(input_bam,"GB")+1)*5),"\\..*","") + " HDD"
-        memory: "10 GB"
-        preemptible: preemptible_count
-    }
-}
 
