@@ -389,7 +389,7 @@ task StarAlign {
 		tar -xvf ${star_genome_refs_tarred}
 
 		STAR \
-		--genomeDir STAR2_5 \
+		--genomeDir star \
 		--runThreadN ${threads} \
 		--readFilesIn ${fastq1} ${fastq2} \
 		--readFilesCommand "gunzip -c" \
