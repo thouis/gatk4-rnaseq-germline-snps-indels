@@ -47,7 +47,7 @@
 
 	## Inputs for STAR
 	Int? readLength
-	File? zippedStarReferences
+	File? tarredStarReferences
 	File annotationsGTF
   
 	## Optional user optimizations
@@ -85,7 +85,7 @@
 			gatk_path = gatk_path
 	}
 
-	if (!defined(zippedStarReferences)) {
+	if (!defined(tarredStarReferences)) {
 
 		call StarGenerateReferences { 
 			input:
@@ -98,11 +98,11 @@
 		}
 	}
 
-	File starReferences = select_first([zippedStarReferences,StarGenerateReferences.star_genome_refs_zipped,""])
+	File starReferences = select_first([tarredStarReferences,StarGenerateReferences.star_genome_refs_tarred,""])
 
 	call StarAlign { 
 		input: 
-			star_genome_refs_zipped = starReferences,
+			star_genome_refs_tarred = starReferences,
 			fastq1 = SamToFastq.fastq1,
 			fastq2 = SamToFastq.fastq2,
 			base_name = sampleName + ".star",
@@ -346,12 +346,12 @@ task StarGenerateReferences {
 
 		ls STAR2_5
 
-		tar -zcvf star-HUMAN-refs.tar.gz STAR2_5
+		tar -cvf star-HUMAN-refs.tar STAR2_5
 	>>>
 
 	output {
 		Array[File] star_logs = glob("*.out")
-		File star_genome_refs_zipped = "star-HUMAN-refs.tar.gz"
+		File star_genome_refs_tarred = "star-HUMAN-refs.tar"
 	}
 
 	runtime {
@@ -365,7 +365,7 @@ task StarGenerateReferences {
 
 
 task StarAlign {
-	File star_genome_refs_zipped
+	File star_genome_refs_tarred
 	File fastq1
 	File fastq2
 	String base_name
@@ -386,7 +386,7 @@ task StarAlign {
 	command <<<
 		set -e
 
-		tar -xvzf ${star_genome_refs_zipped}
+		tar -xvf ${star_genome_refs_tarred}
 
 		STAR \
 		--genomeDir STAR2_5 \
