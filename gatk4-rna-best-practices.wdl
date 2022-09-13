@@ -231,13 +231,25 @@ task MarkDuplicates {
  	Int preemptible_count
 
   command <<<
- 	    ${gatk_path} \
+  ${gatk_path} \
+      PrintReadsHeader \
+      --INPUT ${input_bam} \
+      --OUTPUT header.sam
+
+  sed '/SN:chr/! s/SN:/SN:chr/' < header.sam > header_withchr.sam
+
+  ${gatk_path} \
+      ReplaceSamHeader \
+      --INPUT ${input_bam} \
+      --HEADER header_withchr.sam \
+      --OUTPUT reheadered.bam
+
+  ${gatk_path} \
  	        SortSam \
- 	        --INPUT ${input_bam} \
+ 	        --INPUT reheadered.bam \
                 --SORT_ORDER coordinate \
  	        --OUTPUT ${base_name}.sorted.bam  \
  	        --VALIDATION_STRINGENCY SILENT
-  
  	    ${gatk_path} \
  	        MarkDuplicates \
  	        --INPUT ${base_name}.sorted.bam \
@@ -280,7 +292,7 @@ task SplitNCigarReads {
                 SplitNCigarReads \
                 -R ${ref_fasta} \
                 -I ${input_bam} \
-                -O ${base_name}.bam 
+                -O ${base_name}.bam
     >>>
 
         output {
