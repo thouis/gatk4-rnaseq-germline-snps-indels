@@ -35,7 +35,8 @@
 	String? gatk_path_override
 	String gatk_path = select_first([gatk_path_override, "/gatk/gatk"])
 
-	Array[File] knownVcfs
+        File annotationsGTF
+        Array[File] knownVcfs
 	Array[File] knownVcfsIndices
 
 	File dbSnpVcf
