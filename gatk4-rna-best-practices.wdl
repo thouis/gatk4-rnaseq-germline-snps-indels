@@ -238,7 +238,7 @@ task MarkDuplicates {
 
   cat header.sam
 
-  sed '/SN:chr/! s/SN:/SN:chr/' < header.sam > header_withchr.sam
+  sed '/SN:chr/! s/SN:/SN:chr/' < header.sam | sed 's/SN:chrMT/SN:chrM/' | grep -v "SN:chrKI" | grep -v "SN:chrGL" > header_withchr.sam
 
   ${gatk_path} \
       ReplaceSamHeader \
