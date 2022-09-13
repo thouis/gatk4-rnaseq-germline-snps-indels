@@ -252,10 +252,12 @@ task MarkDuplicates {
                 --SORT_ORDER coordinate \
  	        --OUTPUT ${base_name}.sorted.bam  \
  	        --VALIDATION_STRINGENCY SILENT
- 	    ${gatk_path} \
- 	        MarkDuplicates \
- 	        --INPUT ${base_name}.sorted.bam \
+
+  ${gatk_path} \
+      MarkDuplicates \
+                --INPUT ${base_name}.sorted.bam \
  	        --OUTPUT ${base_name}.bam  \
+                --ASSUME_SORT_ORDER coordinate \
  	        --CREATE_INDEX true \
  	        --VALIDATION_STRINGENCY SILENT \
  	        --METRICS_FILE ${base_name}.metrics
