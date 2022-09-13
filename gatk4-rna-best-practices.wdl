@@ -225,30 +225,14 @@ task MarkDuplicates {
  	File input_bam
  	String base_name
 
-  String gatk_path
-
-  String docker
+        String gatk_path
+        String docker
  	Int preemptible_count
 
   command <<<
   ${gatk_path} \
-      PrintReadsHeader \
-      --input ${input_bam} \
-      --output header.sam
-
-  cat header.sam
-
-  sed '/SN:chr/! s/SN:/SN:chr/' < header.sam | sed 's/SN:chrMT/SN:chrM/' | grep -v "SN:chrKI" | grep -v "SN:chrGL" > header_withchr.sam
-
-  ${gatk_path} \
-      ReplaceSamHeader \
-      --INPUT ${input_bam} \
-      --HEADER header_withchr.sam \
-      --OUTPUT reheadered.bam
-
-  ${gatk_path} \
  	        SortSam \
- 	        --INPUT reheadered.bam \
+ 	        --INPUT ${input_bam} \
                 --SORT_ORDER coordinate \
  	        --OUTPUT ${base_name}.sorted.bam  \
  	        --VALIDATION_STRINGENCY SILENT
