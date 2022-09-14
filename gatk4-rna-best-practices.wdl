@@ -237,25 +237,25 @@ task MarkDuplicates {
   samtools view -H needs_header.bam | sed "s/SN:/SN:chr/" > new_header.sam
   echo "NEWHEADER"
   cat new_header.sam
-  samtools reheader new_header.sam needs_header.bam > ${base_name}.sorted.bam
-  samtools index ${base_name}.sorted.bam
+  samtools reheader new_header.sam needs_header.bam > ${base_name}.bam
+  samtools index ${base_name}.bam
   echo "SIZE"
-  ls -l
+  ls -l > "${base_name}.metrics"
 
-  ${gatk_path} \
-      MarkDuplicates \
-                --INPUT ${base_name}.sorted.bam \
- 	        --OUTPUT ${base_name}.bam  \
-                --ASSUME_SORT_ORDER coordinate \
- 	        --CREATE_INDEX true \
- 	        --VALIDATION_STRINGENCY SILENT \
- 	        --METRICS_FILE ${base_name}.metrics
- 	>>>
+#   ${gatk_path} \
+#       MarkDuplicates \
+#                 --INPUT ${base_name}.sorted.bam \
+#  	        --OUTPUT ${base_name}.bam  \
+#                 --ASSUME_SORT_ORDER coordinate \
+#  	        --CREATE_INDEX true \
+#  	        --VALIDATION_STRINGENCY SILENT \
+#  	        --METRICS_FILE ${base_name}.metrics
+  	>>>
 
  	output {
  		File output_bam = "${base_name}.bam"
  		File output_bam_index = "${base_name}.bai"
- 		File metrics_file = "${base_name}.metrics"
+ 	        File metrics_file = "${base_name}.metrics"
  	}
 
 	runtime {
