@@ -254,7 +254,7 @@ task MarkDuplicates {
 
  	output {
  		File output_bam = "${base_name}.bam"
- 		File output_bam_index = "${base_name}.bai"
+ 		File output_bam_index = "${base_name}.bam.bai"
  	        File metrics_file = "${base_name}.metrics"
  	}
 
