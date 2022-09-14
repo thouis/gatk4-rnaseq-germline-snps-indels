@@ -412,12 +412,13 @@ task HaplotypeCaller {
 
 	Int? stand_call_conf
 
-	command <<<
+  command <<<
+  grep -v chrM ${interval_list} > ${interval_list}.nochrm.interval_list
 		${gatk_path} --java-options "-Xms6000m -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10" \
 		HaplotypeCaller \
 		-R ${ref_fasta} \
 		-I ${input_bam} \
-		-L ${interval_list} \
+		-L ${interval_list}.nochrm.interval_list \
 		-O ${base_name}.vcf.gz \
 		-dont-use-soft-clipped-bases \
 		--standard-min-confidence-threshold-for-calling ${default=20 stand_call_conf} \
