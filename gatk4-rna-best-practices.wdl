@@ -495,9 +495,10 @@ task MergeVCFs {
     # See https://github.com/broadinstitute/picard/issues/789 for relevant GatherVcfs ticket
     command <<<
         ${gatk_path} --java-options "-Xms2000m"  \
-            MergeVcfs \
+            SortVcf \
             --INPUT ${sep=' --INPUT ' input_vcfs} \
-            --OUTPUT ${output_vcf_name}
+            --OUTPUT ${output_vcf_name} \
+            --CREATE_INDEX
     >>>
 
     output {
