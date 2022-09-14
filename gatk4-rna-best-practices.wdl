@@ -230,12 +230,17 @@ task MarkDuplicates {
  	Int preemptible_count
 
   command <<<
-  ${gatk_path} \
- 	        SortSam \
- 	        --INPUT ${input_bam} \
-                --SORT_ORDER coordinate \
- 	        --OUTPUT ${base_name}.sorted.bam  \
- 	        --VALIDATION_STRINGENCY SILENT
+
+  samtools view -b ${input_bam} 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X | \
+      samtools sort -b > needs_header.bam
+
+  samtools view -H needs_header.bam | sed "s/SN:/SN:chr/" > new_header.sam
+  echo "NEWHEADER"
+  cat new_header.sam
+  samtools reheader new_header.sam needs_header.bam > ${base_name}.sorted.bam
+  samtools index ${base_name}.sorted.bam
+  echo "SIZE"
+  ls -l
 
   ${gatk_path} \
       MarkDuplicates \
