@@ -233,8 +233,8 @@ task MarkDuplicates {
 
   samtools sort -n -@ 4 -O bam ${input_bam} | \
       samtools fixmate -m - - | \
-      samtools -@ 4 sort -O bam - | \
-      samtools -@ 4 markdup -s - ${base_name}.marked.bam >> "${base_name}.metrics"
+      samtools sort -@ 4 -O bam - | \
+      samtools markdup -@ 4 -s - ${base_name}.marked.bam >> "${base_name}.metrics"
   samtools index ${base_name}.marked.bam
   samtools view -O bam ${base_name}.marked.bam 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X \
       > needs_header.bam
