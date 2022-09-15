@@ -231,17 +231,16 @@ task MarkDuplicates {
 
   command <<<
 
-  samtools sort -O bam ${input_bam} > ${base_name}.sorted.bam
-  samtools index ${base_name}.sorted.bam
-  samtools view -O bam ${base_name}.sorted.bam 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X \
+  samtools sort -n -@ 4 -O bam ${input_bam} | \
+      samtools fixmate -m - - | \
+      samtools -@ 4 sort -O bam - | \
+      samtools -@ 4 markdup -s - ${base_name}.marked.bam >> "${base_name}.metrics"
+  samtools index ${base_name}.marked.bam
+  samtools view -O bam ${base_name}.marked.bam 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X \
       > needs_header.bam
   samtools view -H needs_header.bam | sed "s/SN:/SN:chr/" > new_header.sam
-  echo "NEWHEADER"
-  cat new_header.sam
   samtools reheader new_header.sam needs_header.bam > ${base_name}.bam
   samtools index ${base_name}.bam
-  echo "SIZE"
-  ls -l > "${base_name}.metrics"
 
 #   ${gatk_path} \
 #       MarkDuplicates \
@@ -262,7 +261,8 @@ task MarkDuplicates {
 	runtime {
 		disks: "local-disk " + sub(((size(input_bam,"GB")+1)*4),"\\..*","") + " HDD"
 		docker: docker
-		memory: "4 GB"
+                memory: "32 GB"
+                cpu: 8
 		preemptible: preemptible_count
 	}
 }
