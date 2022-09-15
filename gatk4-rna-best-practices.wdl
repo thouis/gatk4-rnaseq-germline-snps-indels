@@ -282,7 +282,7 @@ task SplitNCigarReads {
         Int preemptible_count
 
     command <<<
-    ${gatk_path} --java-options "-Xms4000m" \
+    ${gatk_path} --java-options "-Xms8000m" \
                 SplitNCigarReads \
                 -R ${ref_fasta} \
                 -I ${input_bam} \
@@ -297,7 +297,7 @@ task SplitNCigarReads {
     runtime {
         disks: "local-disk " + sub(((size(input_bam,"GB")+1)*5 + size(ref_fasta,"GB")),"\\..*","") + " HDD"
         docker: docker
-        memory: "8 GB"
+        memory: "32 GB"
         preemptible: preemptible_count
     }
 }
